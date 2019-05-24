@@ -1,0 +1,263 @@
+---
+title: "Dynamic Prediction of Lesion Recovery"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Dynamic Prediction of Lesion Recovery}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+<style type="text/css">
+figure {
+  float: center;
+  width: 100%;
+  text-align: justify;
+  font-style: italic;
+  font-size: smaller;
+  text-indent: 0;
+  border: thin silver solid;
+  margin: 1.5em;
+  padding: 0.5em;
+}
+img.scaled {
+  width: 100%;
+}
+
+
+p.caption {
+  font-size: 0.9em;
+  font-style: italic;
+  color: grey;
+  text-align: center;
+  margin: 1.0em;
+  padding: 1.0em;
+}
+
+
+</style>
+
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA)
+```
+
+## Introduction
+```{r setup, include = FALSE}
+library(plyr)
+library(tidyverse)
+library(reshape2)
+library(lubridate)
+library(ggplot2)
+library(gridExtra)
+```
+
+This vignette is an introduction to dynamically predicting longitudinal MS lesion data as well as a step-by-step tutorial for the dlmLesion package in R.  All commands and examples will work on the original MS lesion data as well as our simulated lesion data.  We include simulated data due to privacy and permission concerns with the original data.  Simulated data used functional principal components from original data to generate voxels for 30 lesions. General features of the original data were use to generate the simulated trajectories including the length of historical information available for each lesion, resampled PC scores, lesion coordinates for voxels and the size of lesions, in addition to the PCs and overall mean trajectory mentioned previously. 
+
+
+After loading the package, the simulated data can be accessed using the command data (MSLesion).  Below we print out the first 10 rows of the data in order to understand the structure.
+
+
+```{r data}
+library(dlmLesion)
+data(MSlesion, package = "dlmLesion")
+ldat<-MSlesion
+head(ldat,10)
+```
+
+In the simulated data, we have six variables that are needed throughout the data analysis.  The data can include other variables and columns as well, but these six are needed for this analysis.  The variables are: 
+
+\begin{itemize}
+  \item lid: lesion id
+  \item vid: voxel id
+  \item xind, yind, zind:  x, y, and z (3D) coordinates of each voxel 
+  \item stime: time of the visit, days from lesion incidence
+  \item y: MRI intensity of the voxel
+\end{itemize}
+
+\noindent The lesion id (lid) is $1-30$ for the $30$ lesions in the simulated data, and voxel id (vid) is numbered from $1-7267$, for the $7267$ voxels in the 30 lesions. The variable indicating the time of the visit ("stime"), here indicates the number of days before (negative values) or after (positive values) lesion incidence.  The scans occur at irregular time intervals, which is one of many challenges that this type of data present. The approximate time of lesion incidence is when stime is 0.  In the simulated data, visit times range anywhere from $-240$ (240 days before lesion incidence) to around 360, almost a year after incidence.
+
+The variable, $y$, is the observed intensity for the specified voxel at the time of visit.  In the case of this data, $y$ is the fluid-attenuated inversion recovery (FLAIR) intensity from structural MRI (sMRI) scans after preprocessing, which includes being registered across time and individuals as well as normalized with respect to the normal appearing white matter (NAWM) as described in detail in Sweeney et al. (2016). The values of $y$ typically fluctuates around 0 before incidence, after which it spikes at the time of lesion incidence as we see in the data printout above, where it spikes up to about 5.9. In general, $y$ ranges anywhere from $-2$ to $12$.
+
+
+##Examples
+
+In Figure 1-A, we show the the original FLAIR intensity for two voxels from the non-simulated lesion data.  One of the voxels, shown in red, has a very low variability before lesion incidence.  The other voxel, shown in black, has a high variability before lesion incidence. To account for differences across lesions and voxels, we standardize the FLAIR trajectories using voxel specific means and standard deviations (SD) calculated from the baseline or pre-incidence observations.  The standardization allows us to compare the FLAIR intensity levels after incidence to baseline levels and determine if or when the voxel FLAIR intensities return or recover to their pre-incidence levels.
+
+
+
+<figure>
+  <p><img class=scaled src="figure1_exsubj_slices_highLow2.pdf"
+    alt="figure1">
+  <figcaption>Figure 1: Two example FLAIR trajectories from lesion voxels, one with a high baseline SD (shown in black) and the other with low SD (red). Panels A and B are the trajectories before and after standardization respectively.  Panel C shows the lesion slice containing the voxel shown in black at each visit.  Panel D is the lesion slice for the voxel in red. </figcaption>
+</figure>
+
+
+##Standardize
+To standardize the FLAIR intensities, we use the mean intensity $\mu_{ikv}$ for participant $i$, lesion $k$, and voxel $v$, calculated from the intensities from all visits before lesion incidence.  For the SD $\tilde{s}_{ikv}$, we first calculate the SD, $s_{ikv}$, for each voxel.  However, because some of the lesions have very few visits prior to incidence, the SD $s_{ikv}$ may be very small, resulting in extremely high values for the standardized intensities.  To ameliorate these concerns, we use information from all SDs from the lesion to reduce the chance we obtain an unreasonably small SD. To do this we calculate a stabilized SD as:
+
+$$ \tilde{s}_{ikv} = \sqrt{\frac{\bar{s}_{ik}^2+ s_{ikv}^2}{2}} \, , $$
+where $\bar{s}_{ik}^2 = \sum_{v=1}^{V_k} s_{ikv}^2/V_k$ is the average SD for all voxels in the lesion and $V_k$ is the total number of voxels in lesion $k$.  This way, the SD is specific to each voxels' baseline values and are able to account for voxels that have very small SDs due to very few observations before incindence.  Then the FLAIR intensities are standardized at each visit time $t_j$ as follows:
+
+
+
+
+$$ \tilde{y}_{ikv}(t_j) =  \frac{ y_{ikv}(t_j) - \hat{\mu}_{ikv} }{\tilde{s}_{ikv}}.$$
+
+To perform this operation in R, we use the following command to standardize the intensity trajectories:
+
+```{r normalize, warning=FALSE}
+base_dat<-baseline_std(xdat = ldat, method="stabilized")
+head(base_dat)
+```
+ 
+Here, `xdat` is a data frame that containing at least the following three variables `vid` (voxel id), `stime` (visit time, measured in days from lesion incidence), and `y` (MRI intensity values, for this data they are FLAIR intensities).  The other option in the function, `method,` specifies which SD to use to standardize the intensities.  The options are `stabilized`, which uses the stabilized SD $\tilde{s}_{ikv}$ and is the default, `voxel` which uses $s_{ikv}$, and `lesion` which uses $\bar{s}_{ik}$, whichever is desired.  
+
+The output is a new data frame, `base_dat`, with all of the variables from the original data frame `xdat` with three new variables: `y_std` (the new standardized intensities), base_mean (baseline mean for each voxel), base_sd (baseline SD, the stabilized, voxel, or lesion versions - whichever is specified.)
+
+##Interpolate
+
+After standardizing, we interpolate the intensities for each voxel and lesion on a set grid of points.  The interpolation is done to account for the irregularity in visit times so the voxel history can be incorporated into the dynamic linear models.  As you can see in the first few visits for lesion 1 and lesion 2 of the data below, the visits are approximately every 30 days, but the intervals are variable for each lesion.  Lesion 1 has their first visit 202 days before lesion incidence whereas lesion 2 has their first visit 209 days before incidence.
+
+```{r interp1, warning=FALSE,echo=FALSE}
+head(base_dat,5)
+head(filter(base_dat,lid==2,5))
+```
+
+
+To interpolate, we use the command `interp_times`, which requires three inputs: `times`, a vector of times at which we want to interpolate the FLAIR intensities, `tstar`, the "current" time or reference point, and `xdat` a data frame containing variables including `vid`, `y_std`, and `stime`. The code is found below.  
+
+```{r interp2,message=FALSE,warning=FALSE}
+itimes<-seq(-210,360,by=30)
+idat<-interp_times(xdat = base_dat,times = itimes, tstar=60)
+```
+
+When we dynamically predict the voxel intensities, we are assuming that at some time $t^*$ after lesion incidence, say $t^*=60$, we have observed a lesion form and we want to be able to predict how it will develop in the future.  So $t^*$ divides the lesion trajectory into two halves, the historical information (all intensities where $t<=t^*$) and the future times ($t>t^*$).  For the historical times, we interpolate linearly, using only the historical information to interpolate.  For the future times, we do a flat interpolation, which bins the future time into intervals and averages all intensities within that interval.  So for example, if we were to do a flat interpolation every 30 days and $t^*=60$, we would interpolate the intensity at $t = 90$ to be the average intensity for this voxel where $75 \leq t < 105$, and then interpolate again at $t=120$ which is the average intensity for the voxel for all visits where  $105 \leq t < 135$ and so forth. Essentially, we set up a sequence of times (every 30 days) at which the intensities will be interpolated. The midpoints between the interpolation times provide the boundary points of "bins" in which we calculate the average intensity for each interpolation time.  The subsequent output is a data frame with three variables, `vid`, `itime` (interpolated time points), and `y_i` (interpolated intensities).  The first few lines of the data frame output with interpolated intensities (`idat`) are shown below.
+
+```{r interp3}
+head(idat)
+```
+
+##Dynamic Linear Modeling
+
+After interpolation of the FLAIR intensities at a grid of times 30 days apart, we next fit the dynamic linear model to predict the voxel trajectories at each of the "future"" time points.  To do this, we use the function `dlm` which takes the interploated output data from `interp_times` (`idat`) along with any other demographic variables that are not time-dependent.  The `dlm` function has five possible inputs.  The first three are `dat` (data frame with `vid`, `itime`, and `y_i`, see output for `interp_times`), `htimes` (vector of historical time points that will be used as variables in the DLM), and `ptimes` (a vector of times at which the model will predict the voxel intensities). `dat` will need to be in long format (the same format that `interp_times` output is) and can have other columns such as **age** or **sex** that have other variables to be included in the model. Each additional column will be automatically included in the DLM. Both `htimes` and `ptimes` will need to have time points in `itimes` in `idat` where the voxel trajectories have used to obtain interpolated intensities. 
+
+The fourth and fifth inputs of the `dlm` function are `nfit` and `tx`, inputs that default to NULL and 1 respectively and only will be used to facilitate the parallelization of the the DLM model fitting. Because there are typically many voxels which can take a long time.  In this data, with only 30 lesions and approximately 7200 voxels, it should not take as long as a larger data set, such as the original data set for this analysis would with 187,000 voxels.  `nfit` is the number of voxels to fit within each iteration of the model (the number of voxels run on each node simultaneously), and `tx` is the $tx^{th}$ iteration of the model.  So for example, if the data has 10,000 voxels, and I have eight nodes I can run the model on, $nfit=1250$ will do 1,250 voxels per node, running all voxels simultaneously on the eight nodes.  The code for the first node would be:
+
+```{r dlm1,eval=F}
+dlm(dat=idat, htimes=c(-30,0,30),ptimes=c(60,90), nfit=1250, tx=1)
+```
+
+which will dynamically predict intensities at $t=60$ and $90$ for the voxels $1-1250$. Then for the second node, the could would be:
+
+```{r dlm2,eval=F}
+dlm(dat=idat, htimes=c(-30,0,30),ptimes=c(60,90), nfit=1250, tx=2)
+```
+
+which will dynamically predict voxel intensities at $t=60$ and $90$ for the voxels $1251-2500$ and so forth, each iteration increasing `tx` by 1. On the other hand, if `nfit=NULL` which is the default, the model will run for all voxels.
+
+The output of `dlm` is a list with two objects.  The first is `dlm_model`, which itself is a list of length equal to `ptimes` where each object in the list has an lm object, a model for each prediction time.  The second object `predictions` is a matrix of prediction intensities for each `vid` at each prediction time indicated by `ptimes`.  Additionally, the model will predict the intensity at every time point in `ptimes`, even if the original trajectory has a missing observation at that interpolated time.  
+
+The code to fit all the voxels is commented out, we do not run the model for all 7200 voxels here as that would take $\sim 25$ minutes. Thus, we run the model only for the first 300 voxels, which takes about 1 minute and 20 seconds. This accounts for the first 5 lesions. 
+
+```{r dlm3}
+htimes1<-as.character(seq(-60,60,by=30))
+ptimes1<-as.character(seq(90,330,by=30))
+
+#All voxels
+#dlm_mods<-dlm(idat,htimes1,ptimes1)
+
+#First 500 voxels
+dlm_mods<-dlm(idat,htimes1,ptimes1,nfit=300,tx=1)
+```
+
+From the dlm command, we get the voxel predictions at each time point as well as the model information.  The predicted intensities for each voxel are found in the matrix `predictions` (shown below).  The first column contains the `vids` for each voxel and the subsequent columns have the predicted intensities for each time.  Naturally, `t90` refers to the prediction at $t=90$, the other columns follow the same pattern.
+
+```{r dlm4}
+head(round(dlm_mods$predictions,2),10)
+```
+
+As we can see from the output below, `dlm_model` has 9 linear model objects, one for each prediction time.  We show the coefficients of the DLM for first time point ($t=90$).  In this example, the variables include just the historical voxel intensity at $t=-60, -30, 0, 30$ and 60. One of the reasons we keep the linear models is to be able to use them to predict trajectories for voxels from lesions that may not have been identified yet. Once we obtain the historical information from these "new" voxels, we can use these models to dynamically predict the future trajectories.  
+
+```{r dlm5}
+length(dlm_mods$dlm_model)
+summary(dlm_mods$dlm_model[[1]])
+```
+
+
+##Prediction of Additional Voxels
+
+To predict the future trajectory of voxels not found in the original data ("new voxels") or to observe what happens when we perturb the variables as coefficients in the model, we use the command `dlm_pred` to predict the voxel at all of the time points used in the original dlm model (see previous section).  In the code below, `curr_models` is the list of dlm model objects from the function `dlm` as described in the previous section. `newdata_df` is the data frame with new voxel variable information to use to predict.  `ptimes` is the list of prediction times that correspond to the original model fit in cmods.  This variable is only used here for names of the columns for the prediction matrix output.
+
+
+```{r dlmpred1}
+cmods<-dlm_mods$dlm_model
+
+#Make fake data
+newdat<-data.frame("x1"=c(0,0),"x2"=c(0,0.5),"x3"=c(0,0.2),"x4"=c(-0.5,0),"x5"=c(-.20,0))
+colnames(newdat)<-c("x-60","x-30","x0","x30","x60")
+
+#Obtain Predictions
+pred_results<-dlm_pred(newdata_df=newdat, curr_models=cmods, ptimes=ptimes1)
+```
+
+`newdata_df` should be a data frame that contains all the variables that are used in the model, with the same names.  Information from one or multiple voxels can be provided. The resulting output is a matrix in the same format as the predictions from `dlm`, only there is no column for `vid`.  Each row of predictions corresponds to the same row in the input data frame `newdata_df`.
+
+```{r dlmpred2}
+round(pred_results,3)
+```
+
+##Visualizations
+
+Lastly, we have also included a function to produce visualizations of specific voxels and lesions.  We include two functions, `plot_dlm` and `plot_dlm2` which highlight one and two voxels respectively. For the function that shows two voxels, the two voxels need to be part of the same lesion slice (on the same plane of the lesion as each other - xind is the same for both).  
+
+In order to obatin these visualizations, a few preparation steps are necessary.  First, we take the predictions from the dlm command and join them with the lesion id information from the original data frame. This requires this data frame (`pdat`) to have information `lid`, `xind`, `yind`, and `zind`. in addition to `vid` and the predicted intensities.  Then, we join the predicted information and the standardized intensities into the same data frame.  These two steps are done using the following code.
+
+
+```{r visual1}
+#Extract lesion id information (lid, x, y, z coordinates)
+temp_df<-as.data.frame(dlm_mods$predictions)
+idvars<- base_dat %>% select(lid,vid,xind,yind,zind) %>%
+  distinct()
+
+#Put predictions in long format - join with lesion id information
+pdat<- temp_df  %>%
+  gather(key=time,value=y,-vid) %>%
+  mutate(stime=as.numeric(substr(time,2,4)), source = "Predicted") %>%
+  select(vid,stime,source,y) %>%
+  left_join(idvars, by="vid")
+
+#Take original (standardized) intensities (rename)
+idat_id<-idat %>% left_join(idvars,by="vid") %>%
+  mutate(source="Standardized") %>%
+  dplyr::rename(y=y_i,stime=itime)
+
+#Join original and predicted intensities to same data frame
+  #arrange is not necessary, but is done to show the data comes
+  #from both sources (predicted and standardized)
+pdat2<-pdat %>% bind_rows(idat_id) %>% arrange(lid,vid,stime,source)
+```
+
+This results in a data frame that is similar to the following output:  
+
+```{r visual2}
+head(pdat2,15)
+```
+
+In order to work with the `plot_dlm` function, the data frame, `pdat2` in this case, needs the following columns: `lid`, `vid`, `xind`, `yind`, `zind`, `stime`, and `y`.  In addition to a data frame with the original and prediction data, `plot_dlm` input includes a vector, `vids`, that contains the vids (one or two of them) that will be highlighted in the plot. After preparing the data as shown above to get the data frame `pdat2`, we use the following code to plot the trajectories and lesion slice over time.  
+
+```{r visualplot, fig.cap="Figure 2: Example 1 with one voxel from lesion 2.", fig.width = 12,fig.height=7,fig.align='center'}
+pout_dlmA<-plot_dlm(dat_b=pdat2,vids=66)
+```
+ 
+\vspace{5mm}
+Panel A of Figure 2 show the trajectory of the voxel indicated (voxel = 66), highlighted in black (standardized, actual intensities) and dark red (predicted intensities).  The other voxels in the same lesion slice as the voxel are shown in light gray and light red as the standardized and predicted intensities respectively. Figure 2-B shows the lesion slice of the standardized data, over the course of the follow up time.  The chosen voxel is marked with an arrow.  The slice is colored according to the voxel intensity, with the color scale in the lower left hand corner.  The same slice in the last panel C is shown; however, it is colored according to the predicted trajectory for the voxels, and only at the prediction time points.
+
+
+Figure 3 is the same as Figure 2, except we include two voxels instead of only one.  Both voxels need to be part of the same lesion.  Additionally, we use the function `plot_dlm2` instead of `plot_dlm` to do this.  Since there are two arrow pointing to the voxels in panels C and D, we also allow the functionality to change the vertical positioning of the letters "A" and "B" as different sizes of plots and number of observations will require different positionings of the voxel labels. This is done through `aadjust` (adjust vertically A) and `badjust` (adjust B).  The current default is $-0.5$ and $0.5$ (negative numbers mean label is below arrow, positive numbers mean label is above arrow).  As in Figure 2, the predicted values are in red and the standardized values are in black/gray (in panels A and B). The color scale is shown in the legend in the bottom left corner and is the same for both standardized and predicted lesion slices (C and D)
+
+\vspace{5mm}
+```{r visualplot2, fig.cap="Figure 3: Example 2 with two voxels from lesion 2", fig.width = 10,fig.height=7,fig.align='center'}
+pout_dlmA<-plot_dlm2(dat_b=pdat2, vids=c(66,25), aadjust=.2, badjust=.4)
+```
+
+

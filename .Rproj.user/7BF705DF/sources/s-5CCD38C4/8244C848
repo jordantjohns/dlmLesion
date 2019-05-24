@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1558675545819.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "8244C848",
+    "lastKnownWriteTime" : 1558675948,
+    "last_content_update" : 1558675948499,
+    "path" : "/Volumes/Apollus/LesionRepair/DynamicPrediction/Code/dynamicP/dlmLesion/R/interp_times.R",
+    "project_path" : "R/interp_times.R",
+    "properties" : {
+        "cursorPosition" : "76,2",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 8,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

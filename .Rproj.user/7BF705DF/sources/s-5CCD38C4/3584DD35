@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1558673155137.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "3584DD35",
+    "lastKnownWriteTime" : 1558675973,
+    "last_content_update" : 1558675973073,
+    "path" : "/Volumes/Apollus/LesionRepair/DynamicPrediction/Code/dynamicP/dlmLesion/R/baseline_std.R",
+    "project_path" : "R/baseline_std.R",
+    "properties" : {
+        "cursorPosition" : "14,2",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

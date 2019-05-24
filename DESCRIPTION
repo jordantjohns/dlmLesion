@@ -1,0 +1,22 @@
+Package: dlmLesion
+Type: Package
+Title: Dynamic Prediction of Lesion Voxel Trajectories in Individuals with Multiple Sclerosis
+Version: 0.1.0
+Author: Jordan Johns
+Maintainer: Jordan Johns <jordan.tjohns@gmail.com>
+Description: Takes voxel trajectories from MS lesions and preprocesses the trajectories for dynamic prediction and visualization. Standardizes voxel trajectories with respect to baseline intensity levels.  Interpolates intensities at a specified grid of points.  Dynamically predicts future trajectories using historical information and demographic variables for voxels currently in the dataset and new emerging lesions.  Provides visualization functions to examine predictions of trajectories and lesion slices
+License: None
+Encoding: UTF-8
+LazyData: true
+Depends:
+    plyr,
+    tidyverse,
+    reshape2,
+    gridExtra,
+    ggplot2,
+    Hmisc
+Suggests: knitr, 
+    rmarkdown,
+    lubridate
+VignetteBuilder: knitr
+RoxygenNote: 6.1.1

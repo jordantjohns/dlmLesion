@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1558672680947.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2657856718",
+    "id" : "DE60E15E",
+    "lastKnownWriteTime" : 1558677497,
+    "last_content_update" : 1558677497215,
+    "path" : "/Volumes/Apollus/LesionRepair/DynamicPrediction/Code/dynamicP/dlmLesion/vignettes/vign_dpLR.Rmd",
+    "project_path" : "vignettes/vign_dpLR.Rmd",
+    "properties" : {
+        "cursorPosition" : "61,37",
+        "scrollLine" : "46"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

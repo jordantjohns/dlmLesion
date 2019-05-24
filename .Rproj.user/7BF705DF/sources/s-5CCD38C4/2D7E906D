@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1558673241489.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "2D7E906D",
+    "lastKnownWriteTime" : 1558675952,
+    "last_content_update" : 1558675952407,
+    "path" : "/Volumes/Apollus/LesionRepair/DynamicPrediction/Code/dynamicP/dlmLesion/R/plot_dlm2.R",
+    "project_path" : "R/plot_dlm2.R",
+    "properties" : {
+        "cursorPosition" : "22,2",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
